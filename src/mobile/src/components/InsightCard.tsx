@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Eye, ShieldCheck, HelpCircle, AlertTriangle } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface InsightCardProps {
   insight: {
@@ -40,6 +41,27 @@ export default function InsightCard({ insight }: InsightCardProps) {
       </View>
 
       <Text style={styles.summaryText}>{insight.summary}</Text>
+
+      {/* Dynamic Confidence Meter Bar */}
+      <View style={styles.confidenceGaugeContainer}>
+        <View style={styles.gaugeLabelRow}>
+          <Text style={styles.gaugeLabel}>Analytical Confidence Score</Text>
+          <Text style={[styles.gaugeValue, { color: confMeta.text }]}>
+            {insight.confidence.toUpperCase()} ({insight.confidence === 'high' ? '92%' : insight.confidence === 'medium' ? '65%' : '35%'})
+          </Text>
+        </View>
+        <View style={styles.gaugeTrack}>
+          <LinearGradient
+            colors={insight.confidence === 'high' ? ['#10B981', '#059669'] : insight.confidence === 'medium' ? ['#F59E0B', '#D97706'] : ['#EF4444', '#DC2626']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              styles.gaugeFill, 
+              { width: insight.confidence === 'high' ? '92%' : insight.confidence === 'medium' ? '65%' : '35%' }
+            ]}
+          />
+        </View>
+      </View>
 
       <View style={styles.divider} />
 
@@ -140,5 +162,41 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     lineHeight: 18,
     fontWeight: '500',
+  },
+  confidenceGaugeContainer: {
+    marginBottom: 16,
+    backgroundColor: '#0A0F1D',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  gaugeLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  gaugeLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  gaugeValue: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  gaugeTrack: {
+    height: 6,
+    backgroundColor: '#1E293B',
+    borderRadius: 3,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  gaugeFill: {
+    height: '100%',
+    borderRadius: 3,
   },
 });

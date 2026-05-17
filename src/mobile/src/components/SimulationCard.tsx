@@ -197,16 +197,69 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
               const afterVal = formatStateValue(simulation.after_state?.[key]);
               const isChanged = beforeVal !== afterVal;
 
+              const parsePercent = (valStr: string): number | null => {
+                const match = valStr.match(/(-?\d+(?:\.\d+)?)\s*%/);
+                return match ? parseFloat(match[1]) : null;
+              };
+
+              const parseCurrency = (valStr: string): number | null => {
+                const match = valStr.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d+)?)/);
+                return match ? parseFloat(match[1]) : null;
+              };
+
+              let beforePercent = parsePercent(beforeVal);
+              let afterPercent = parsePercent(afterVal);
+              let isCurrency = false;
+
+              if (beforePercent === null || afterPercent === null) {
+                const beforeCurr = parseCurrency(beforeVal);
+                const afterCurr = parseCurrency(afterVal);
+                if (beforeCurr !== null && afterCurr !== null) {
+                  const maxVal = Math.max(beforeCurr, afterCurr, 1);
+                  beforePercent = (beforeCurr / maxVal) * 100;
+                  afterPercent = (afterCurr / maxVal) * 100;
+                  isCurrency = true;
+                }
+              }
+
               return (
-                <View key={key} style={[styles.diffRow, isChanged && styles.diffRowChanged]}>
-                  <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
-                  <Text style={styles.diffValBefore}>{beforeVal}</Text>
-                  <View style={styles.arrowColumn}>
-                    <ArrowRight size={10} color="#475569" />
+                <View key={key} style={[styles.diffRowContainer, isChanged && styles.diffRowChanged]}>
+                  <View style={styles.diffRow}>
+                    <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
+                    <Text style={styles.diffValBefore}>{beforeVal}</Text>
+                    <View style={styles.arrowColumn}>
+                      <ArrowRight size={10} color="#475569" />
+                    </View>
+                    <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]}>
+                      {afterVal}
+                    </Text>
                   </View>
-                  <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]}>
-                    {afterVal}
-                  </Text>
+                  
+                  {beforePercent !== null && afterPercent !== null && (
+                    <View style={styles.visBarContainer}>
+                      {/* Before bar (Crimson/Orange indicator) */}
+                      <View style={styles.visBarRow}>
+                        <Text style={styles.visBarLabel}>BEFORE</Text>
+                        <View style={styles.visBarTrack}>
+                          <View style={[styles.visBarFill, { width: `${Math.max(0, Math.min(beforePercent, 100))}%`, backgroundColor: '#F87171' }]} />
+                        </View>
+                        <Text style={styles.visBarValue}>
+                          {isCurrency ? beforeVal.split(' ')[0] : `${beforePercent.toFixed(1)}%`}
+                        </Text>
+                      </View>
+                      
+                      {/* After bar (Emerald Green indicator) */}
+                      <View style={styles.visBarRow}>
+                        <Text style={[styles.visBarLabel, { color: '#34D399' }]}>AFTER</Text>
+                        <View style={styles.visBarTrack}>
+                          <View style={[styles.visBarFill, { width: `${Math.max(0, Math.min(afterPercent, 100))}%`, backgroundColor: '#34D399' }]} />
+                        </View>
+                        <Text style={[styles.visBarValue, { color: '#34D399' }]}>
+                          {isCurrency ? afterVal.split(' ')[0] : `${afterPercent.toFixed(1)}%`}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               );
             })
@@ -395,16 +448,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 15,
   },
+  diffRowContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    paddingBottom: 8,
+  },
   diffRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0F172A',
     alignItems: 'center',
   },
   diffRowChanged: {
     backgroundColor: '#1E1B4B35', // Indigo tinted shift highlight
+  },
+  visBarContainer: {
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+  },
+  visBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  visBarLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#F87171',
+    width: 45,
+    letterSpacing: 0.5,
+  },
+  visBarTrack: {
+    height: 4,
+    backgroundColor: '#0F172A',
+    borderRadius: 2,
+    flex: 1,
+    marginHorizontal: 8,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: '#1E293B',
+  },
+  visBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  visBarValue: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#64748B',
+    width: 50,
+    textAlign: 'right',
   },
   diffKey: {
     fontSize: 11.5,

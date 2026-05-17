@@ -73,6 +73,50 @@ export default function ResultScreen() {
             <Text style={styles.jobTagValue} numberOfLines={1}>{result.job_id || currentJobId}</Text>
           </View>
 
+          {/* Multi-Agent Correlation Flow Map */}
+          <View style={styles.flowCard}>
+            <Text style={styles.flowCardTitle}>Multi-Agent Correlation Flow</Text>
+            <View style={styles.flowRow}>
+              {/* Node 1: Ingest */}
+              <View style={styles.flowNode}>
+                <View style={[styles.flowCircle, { borderColor: '#818CF8' }]}>
+                  <Text style={[styles.flowCircleText, { color: '#818CF8' }]}>INGEST</Text>
+                </View>
+                <Text style={styles.flowLabel}>Facts parsed</Text>
+              </View>
+
+              <Text style={styles.flowArrow}>→</Text>
+
+              {/* Node 2: Insight */}
+              <View style={styles.flowNode}>
+                <View style={[styles.flowCircle, { borderColor: '#38BDF8' }]}>
+                  <Text style={[styles.flowCircleText, { color: '#38BDF8' }]}>INSIGHT</Text>
+                </View>
+                <Text style={styles.flowLabel}>Patterns found</Text>
+              </View>
+
+              <Text style={styles.flowArrow}>→</Text>
+
+              {/* Node 3: Impact */}
+              <View style={styles.flowNode}>
+                <View style={[styles.flowCircle, { borderColor: '#F59E0B' }]}>
+                  <Text style={[styles.flowCircleText, { color: '#F59E0B' }]}>IMPACT</Text>
+                </View>
+                <Text style={styles.flowLabel}>Implications</Text>
+              </View>
+
+              <Text style={styles.flowArrow}>→</Text>
+
+              {/* Node 4: Action */}
+              <View style={styles.flowNode}>
+                <View style={[styles.flowCircle, { borderColor: '#10B981' }]}>
+                  <Text style={[styles.flowCircleText, { color: '#10B981' }]}>DEPLOY</Text>
+                </View>
+                <Text style={styles.flowLabel}>Sandbox SLA</Text>
+              </View>
+            </View>
+          </View>
+
           {/* 1. Insight Card */}
           <InsightCard insight={result.insight} />
 
@@ -207,5 +251,56 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  flowCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    marginBottom: 16,
+  },
+  flowCardTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#818CF8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  flowNode: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  flowCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#020617',
+    marginBottom: 6,
+  },
+  flowCircleText: {
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  flowLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  flowArrow: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#334155',
+    marginHorizontal: 2,
   },
 });
