@@ -34,6 +34,7 @@ export default function TraceScreen() {
   const [expandedSteps, setExpandedSteps] = useState<Record<number, boolean>>({
     0: true, // Expand first step by default
   });
+  const [allExpanded, setAllExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   const toggleExpand = (index: number) => {
@@ -41,6 +42,16 @@ export default function TraceScreen() {
       ...prev,
       [index]: !prev[index],
     }));
+  };
+
+  const toggleAll = () => {
+    const newState = !allExpanded;
+    setAllExpanded(newState);
+    const updated: Record<number, boolean> = {};
+    trace.forEach((_, idx) => {
+      updated[idx] = newState;
+    });
+    setExpandedSteps(updated);
   };
 
   // High-fidelity JSON file export and share
@@ -103,17 +114,26 @@ export default function TraceScreen() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Logic Trace</Text>
           
-          <TouchableOpacity 
-            style={styles.exportHeaderBtn} 
-            onPress={handleExportTraceJson}
-            disabled={isExporting}
-          >
-            {isExporting ? (
-              <ActivityIndicator size="small" color="#818CF8" />
-            ) : (
-              <Share2 size={16} color="#818CF8" />
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity 
+              style={[styles.exportHeaderBtn, { marginRight: 8 }]} 
+              onPress={toggleAll}
+            >
+              <BrainCircuit size={16} color="#818CF8" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.exportHeaderBtn} 
+              onPress={handleExportTraceJson}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator size="small" color="#818CF8" />
+              ) : (
+                <Share2 size={16} color="#818CF8" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>

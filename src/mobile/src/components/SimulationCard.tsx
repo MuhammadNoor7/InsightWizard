@@ -85,11 +85,11 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
             return (
               <View key={key} style={[styles.diffRow, isChanged && styles.diffRowChanged]}>
                 <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
-                <Text style={styles.diffValBefore} numberOfLines={1}>{beforeVal}</Text>
+                <Text style={styles.diffValBefore}>{beforeVal}</Text>
                 <View style={styles.arrowColumn}>
                   <ArrowRight size={10} color="#475569" />
                 </View>
-                <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]} numberOfLines={1}>
+                <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]}>
                   {afterVal}
                 </Text>
               </View>

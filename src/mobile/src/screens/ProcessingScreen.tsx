@@ -31,7 +31,7 @@ export default function ProcessingScreen() {
   useSSEStream(API_BASE_URL);
 
   const scrollRef = useRef<ScrollView | null>(null);
-  const pulseAnim = useRef(new Animated.Value(0.7)).current;
+  const pulseAnim = useRef(new Animated.Value(0.96)).current;
 
   // Auto-scroll logs to bottom
   useEffect(() => {
@@ -47,13 +47,13 @@ export default function ProcessingScreen() {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
+          toValue: 1.04,
+          duration: 1600,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
-          toValue: 0.7,
-          duration: 1000,
+          toValue: 0.96,
+          duration: 1600,
           useNativeDriver: true,
         }),
       ])
@@ -100,10 +100,11 @@ export default function ProcessingScreen() {
 
         {/* Pipeline Pipeline Stage Cards */}
         <View style={styles.pipelineTrace}>
-          {PIPELINE_STAGES.map((stage) => {
+          {PIPELINE_STAGES.map((stage, sIdx) => {
             const isCompleted = progress > stage.progressMax;
             const isActive = progress >= stage.progressMin && progress <= stage.progressMax;
             const isPending = progress < stage.progressMin;
+            const isLast = sIdx === PIPELINE_STAGES.length - 1;
 
             return (
               <View 
@@ -127,10 +128,12 @@ export default function ProcessingScreen() {
                       <View style={styles.dotCheck} />
                     ) : null}
                   </View>
-                  <View style={[
-                    styles.timelineLine,
-                    isCompleted && styles.timelineLineCompleted
-                  ]} />
+                  {!isLast && (
+                    <View style={[
+                      styles.timelineLine,
+                      isCompleted && styles.timelineLineCompleted
+                    ]} />
+                  )}
                 </View>
 
                 {/* Stage Info */}
