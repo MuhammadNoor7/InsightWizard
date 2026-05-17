@@ -62,7 +62,8 @@ async def run_action_agent(impact_data: ImpactOutput, domain: str) -> ActionOutp
         "operational metrics matching the SystemState properties (efficiency_rate, cost_leakage, sla_compliance, "
         "active_risk_alerts, margin_percentage). The keys must represent the same metrics in both states, and the values "
         "in 'after_state' must represent realistic operational improvements after execution.\n"
-        "Additionally, ensure the 'mock_api_call' contains realistic REST request headers, methods, endpoints, and bodies."
+        "Additionally, ensure the 'mock_api_call' contains highly realistic, domain-specific REST request headers, "
+        "methods, endpoints, and request bodies matching the MockApiHeaders and MockApiBody properties."
     )
     return await asyncio.to_thread(
         client.create,

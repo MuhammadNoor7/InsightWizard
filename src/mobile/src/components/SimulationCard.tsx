@@ -273,8 +273,8 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
       {showJson && (
         <View style={styles.jsonConsole}>
           <View style={styles.consoleHeader}>
-            <Text style={styles.consoleMethod}>POST</Text>
-            <Text style={styles.consoleUrl}>/api/v1/dispatch</Text>
+            <Text style={styles.consoleMethod}>{simulation.mock_api_call?.method || 'POST'}</Text>
+            <Text style={styles.consoleUrl}>{simulation.mock_api_call?.url || '/api/v1/dispatch'}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator style={styles.consoleScroll}>
             {renderHighlightedJson(simulation.mock_api_call)}

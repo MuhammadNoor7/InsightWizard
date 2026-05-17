@@ -44,11 +44,21 @@ class SystemState(BaseModel):
     active_risk_alerts: Optional[str] = Field(None, description="Number of active system alerts (e.g., '14 active')")
     margin_percentage: Optional[str] = Field(None, description="Operational profit margin (e.g., '18.4%')")
 
+class MockApiHeaders(BaseModel):
+    content_type: str = Field("application/json", alias="Content-Type", description="HTTP header Content-Type")
+    authorization: str = Field(description="Mock API Authorization header token (e.g. Bearer eyJhbGci...)")
+
+class MockApiBody(BaseModel):
+    action_taken: str = Field(description="Title of the operational action executed")
+    surcharge_percentage: Optional[str] = Field(None, description="Adjustment percentage, discount, or surcharge rate (e.g. '8.5%')")
+    target_region: Optional[str] = Field(None, description="Scope region or territory (e.g. 'Lahore')")
+    priority_level: Optional[str] = Field(None, description="Operational priority category (e.g. 'high')")
+
 class MockApiCall(BaseModel):
     method: str = Field(description="HTTP method (e.g., 'POST', 'PATCH')")
     url: str = Field(description="Mock API endpoint URL (e.g., '/api/v1/logistics/routes')")
-    headers: Dict[str, str] = Field(description="HTTP request headers including content types and auth keys")
-    body: Dict[str, str] = Field(description="API request payload containing the adjusted configuration values")
+    headers: MockApiHeaders = Field(description="HTTP request headers including content types and auth keys")
+    body: MockApiBody = Field(description="API request payload containing the adjusted configuration values")
 
 class SimulationObject(BaseModel):
     action_taken: str
