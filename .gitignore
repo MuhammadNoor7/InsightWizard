@@ -1,0 +1,38 @@
+# Python virtual environment & cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node dependencies & Expo
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.tsbuildinfo
+.metro-health-check*
+
+# Environment secrets
+.env
+.env.local
+.env*.local
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Native generated folders
+ios/
+android/
+.kotlin/
+
+# System files
+.DS_Store
+Thumbs.db
