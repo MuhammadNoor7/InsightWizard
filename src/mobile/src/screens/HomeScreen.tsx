@@ -27,6 +27,7 @@ import {
 } from 'lucide-react-native';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { postAnalyze, postAnalyzeFile } from '../services/analyzeService';
+import { triggerHaptic } from '../services/hapticService';
 
 const { width } = Dimensions.get('window');
 
@@ -222,7 +223,10 @@ export default function HomeScreen() {
                   styles.domainChip,
                   isSelected && { borderColor: domain.color, backgroundColor: `${domain.color}15` }
                 ]}
-                onPress={() => setSelectedDomain(domain.id)}
+                onPress={() => {
+                  triggerHaptic.lightTap();
+                  setSelectedDomain(domain.id);
+                }}
               >
                 <Text style={styles.domainEmoji}>{domain.icon}</Text>
                 <Text style={[styles.domainLabel, isSelected && { color: domain.color, fontWeight: '700' }]}>

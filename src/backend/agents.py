@@ -55,12 +55,21 @@ async def run_impact_agent(insight_data: InsightOutput) -> ImpactOutput:
 
 async def run_action_agent(impact_data: ImpactOutput, domain: str) -> ActionOutput:
     client = get_client()
+    system_prompt = (
+        f"You are a Senior Action Simulation Agent operating in the '{domain}' domain. "
+        "Your objective is to build action recommendations and a highly detailed execution simulation object.\n\n"
+        "CRITICAL REQUIREMENT: You MUST populate 'before_state' and 'after_state' with highly rich, domain-specific "
+        "operational metrics matching the SystemState properties (efficiency_rate, cost_leakage, sla_compliance, "
+        "active_risk_alerts, margin_percentage). The keys must represent the same metrics in both states, and the values "
+        "in 'after_state' must represent realistic operational improvements after execution.\n"
+        "Additionally, ensure the 'mock_api_call' contains realistic REST request headers, methods, endpoints, and bodies."
+    )
     return await asyncio.to_thread(
         client.create,
         model=MODEL_NAME,
         response_model=ActionOutput,
         messages=[
-            {"role": "system", "content": f"You are a Senior Action Simulation Agent operating in the '{domain}' domain. Build action recommendations and a highly detailed execution simulation object including before/after system states and mock REST API calls."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Generate recommended actions and a complete simulation based on this impact analysis:\n\n{impact_data.model_dump_json()}"}
         ]
     )

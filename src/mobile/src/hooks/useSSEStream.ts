@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import EventSource from 'react-native-sse';
 import { useAnalysisStore } from '../store/useAnalysisStore';
+import { triggerHaptic } from '../services/hapticService';
 
 // Polyfill EventSource for React Native environment
 if (!(window as any).EventSource) {
@@ -50,6 +51,7 @@ export const useSSEStream = (apiUrl: string) => {
             break;
             
           case 'AWAITING_APPROVAL':
+            triggerHaptic.reassuringPulse();
             setJobStatus('AWAITING_APPROVAL');
             setResult(data.result);
             addLog('Pipeline analysis complete. Awaiting human execution approval.');
@@ -57,6 +59,7 @@ export const useSSEStream = (apiUrl: string) => {
             break;
             
           case 'FAILED':
+            triggerHaptic.errorAlert();
             setError(data.error);
             eventSource.close();
             break;

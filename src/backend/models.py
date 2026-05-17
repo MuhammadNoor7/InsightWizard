@@ -37,12 +37,25 @@ class ActionItem(BaseModel):
     rationale: str = Field(description="Why this specific action is justified")
     priority: Literal["high", "medium", "low"]
 
+class SystemState(BaseModel):
+    efficiency_rate: Optional[str] = Field(None, description="System efficiency or operational rate (e.g., '78%')")
+    cost_leakage: Optional[str] = Field(None, description="Current margin leakage or cost overhead (e.g., '$12,400')")
+    sla_compliance: Optional[str] = Field(None, description="SLA adherence rate (e.g., '92%')")
+    active_risk_alerts: Optional[str] = Field(None, description="Number of active system alerts (e.g., '14 active')")
+    margin_percentage: Optional[str] = Field(None, description="Operational profit margin (e.g., '18.4%')")
+
+class MockApiCall(BaseModel):
+    method: str = Field(description="HTTP method (e.g., 'POST', 'PATCH')")
+    url: str = Field(description="Mock API endpoint URL (e.g., '/api/v1/logistics/routes')")
+    headers: Dict[str, str] = Field(description="HTTP request headers including content types and auth keys")
+    body: Dict[str, str] = Field(description="API request payload containing the adjusted configuration values")
+
 class SimulationObject(BaseModel):
     action_taken: str
-    mock_api_call: Dict = Field(description="Mock REST API payload (e.g. POST headers, body)")
+    mock_api_call: MockApiCall = Field(description="Mock REST API payload details")
     notification_draft: str = Field(description="Drafted notification (SMS, Email, Slack)")
-    before_state: Dict = Field(description="System state prior to action")
-    after_state: Dict = Field(description="Expected system state after action execution")
+    before_state: SystemState = Field(description="System state metrics prior to action execution")
+    after_state: SystemState = Field(description="Expected system state metrics after execution")
     execution_log: List[str] = Field(description="Simulated execution steps and outputs")
 
 class ActionOutput(BaseModel):

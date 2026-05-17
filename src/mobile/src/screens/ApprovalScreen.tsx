@@ -8,31 +8,88 @@ import {
   ScrollView, 
   Platform,
   Animated,
-  Dimensions
+  Dimensions,
+  PanResponder
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Play, ShieldAlert, CheckCircle2, ChevronRight, Terminal, RefreshCw } from 'lucide-react-native';
+import { ChevronLeft, Play, ShieldAlert, CheckCircle2, ChevronRight, Terminal } from 'lucide-react-native';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { approveJob } from '../services/approvalService';
+import { triggerHaptic } from '../services/hapticService';
 
 const { width } = Dimensions.get('window');
 
-const SIMULATED_RUN_LOGS = [
-  '🔑 Initializing authorization keys via OAuth gateway...',
-  '⚙️ Compiling payload matching simulated REST schema...',
-  '📡 Authenticating handshake with remote REST endpoint...',
-  '🚀 Dispatching POST request to /api/v1/operational-gate...',
-  '🟢 HTTP/1.1 200 OK — Action handshake verified.',
-  '📨 Packaging Slack / SMS templates from message drafts...',
-  '📲 Notification sent successfully to operational leads.',
-  '🔒 Locking system states. Transitions successfully committed.'
-];
+const DOMAINS: Record<string, { label: string; color: string; icon: string }> = {
+  business: { label: 'Business Strategy', color: '#3B82F6', icon: '💼' },
+  policy: { label: 'Public Policy', color: '#10B981', icon: '⚖️' },
+  logistics: { label: 'Logistics & Ops', color: '#8B5CF6', icon: '📦' },
+  finance: { label: 'Financial Risks', color: '#F59E0B', icon: '📈' },
+  news: { label: 'Market Intelligence', color: '#EC4899', icon: '📰' },
+};
+
+const DOMAIN_PLAYBOOKS: Record<string, string[]> = {
+  business: [
+    '🔑 Initializing Shopify & Stripe API gateways...',
+    '⚙️ Syncing HubSpot & Salesforce CRM contact indices...',
+    '📡 Authenticating regional marketing promo compilation...',
+    '🚀 Dispatching SMS & push notification templates...',
+    '🟢 HTTP/1.1 200 OK — CRM & Stripe payment handshakes verified.',
+    '📨 Formatting Shopify checkout success receipt templates...',
+    '📲 Push notification dispatched to active retail accounts.',
+    '🔒 CRM & Stripe ledger transitions successfully committed.'
+  ],
+  logistics: [
+    '🔑 Initializing telemetry dispatch tower API clearance...',
+    '⚙️ Re-routing real-time GPS paths via route-cost engine...',
+    '📡 Authenticating terminal hardware endpoints for drivers...',
+    '🚀 Locking regional delivery margins and invoice state machine...',
+    '🟢 HTTP/1.1 200 OK — Telemetry grid authentications verified.',
+    '📨 Dispatching route alerts to active vehicle driver terminals...',
+    '📲 Delivery margin lock confirmation sent to operational leads.',
+    '🔒 Logistics ledger and transit locks successfully committed.'
+  ],
+  policy: [
+    '🔑 Handshaking with government regulatory & compliance portal...',
+    '⚙️ Syncing legislative schemas with legislative database registers...',
+    '📡 Compiling executive PDF brief drafts for cabinet review...',
+    '🚀 Dispatching secure internal email alerts to legislative leads...',
+    '🟢 HTTP/1.1 200 OK — Compliance portal handshake verified.',
+    '📨 Finalizing regulatory briefing paper PDFs for distribution...',
+    '📲 Email notifications dispatched to designated oversight policy leads.',
+    '🔒 Regulatory database schema updates successfully committed.'
+  ],
+  finance: [
+    '🔑 Handshaking with institutional ledger and clearinghouse node...',
+    '⚙️ Fetching latest market liquidity schemas & ledger indexes...',
+    '📡 Auditing escrow pools & hedging algorithm triggers...',
+    '🚀 Securing multi-signature clearance for transaction execution...',
+    '🟢 HTTP/1.1 200 OK — Clearinghouse gateway settlements verified.',
+    '📨 Packaging compliance and risk report documents for auditors...',
+    '📲 Alert dispatched to chief risk officer via encrypted channel.',
+    '🔒 Financial transaction registers and ledger locks committed.'
+  ],
+  news: [
+    '🔑 Handshaking with syndicate wire channels & RSS feeder API...',
+    '⚙️ Indexing newswire feeds and matching thematic tags...',
+    '📡 Checking editorial and plagiarism compliance engines...',
+    '🚀 Triggering CDN invalidations for breaking stories worldwide...',
+    '🟢 HTTP/1.1 200 OK — News Syndicate RSS handshake verified.',
+    '📨 Formatting editorial templates and newsletter wire briefs...',
+    '📲 Push alerts dispatched to global subscriber mobile network.',
+    '🔒 Feed index database transactions successfully committed.'
+  ]
+};
 
 export default function ApprovalScreen() {
   const navigate = useAnalysisStore((state) => state.navigate);
   const result = useAnalysisStore((state) => state.result);
   const currentJobId = useAnalysisStore((state) => state.currentJobId);
+  const currentDomain = useAnalysisStore((state) => state.currentDomain);
   const { executeStatus, executionLogs, setExecuteStatus, addExecutionLog, resetExecutionState } = useAnalysisStore();
+
+  const selectedDomain = result?.domain || currentDomain || 'business';
+  const domainInfo = DOMAINS[selectedDomain.toLowerCase()] || DOMAINS.business;
+  const activePlaybook = DOMAIN_PLAYBOOKS[selectedDomain.toLowerCase()] || DOMAIN_PLAYBOOKS.business;
 
   const [isLoading, setIsLoading] = useState(false);
   const [logIndex, setLogIndex] = useState(0);
@@ -40,6 +97,14 @@ export default function ApprovalScreen() {
   const scrollRef = useRef<ScrollView | null>(null);
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Swipe to deploy state and animations
+  const pan = useRef(new Animated.Value(0)).current;
+  const [trackWidth, setTrackWidth] = useState(0);
+  const containerWidth = trackWidth || (Dimensions.get('window').width - 40);
+  const sliderWidth = 54;
+  const maxSlideDistance = containerWidth - sliderWidth - 10; // 5px padding on each side
+  const hasTriggeredSelection = useRef(false);
 
   // Auto-scroll execution logs
   useEffect(() => {
@@ -66,6 +131,82 @@ export default function ApprovalScreen() {
     }
   }, [executeStatus]);
 
+  // Reset swipe position when execution resets or fails
+  useEffect(() => {
+    if (executeStatus !== 'RUNNING' && executeStatus !== 'SUCCESS') {
+      Animated.spring(pan, {
+        toValue: 0,
+        friction: 5,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [executeStatus]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !isLoading && executeStatus !== 'RUNNING',
+      onMoveShouldSetPanResponder: () => !isLoading && executeStatus !== 'RUNNING',
+      onPanResponderGrant: () => {
+        hasTriggeredSelection.current = false;
+        triggerHaptic.selection().catch(() => {});
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const newX = Math.min(Math.max(0, gestureState.dx), maxSlideDistance);
+        pan.setValue(newX);
+
+        // Light feedback tick at 50% swipe
+        if (newX > maxSlideDistance * 0.5 && !hasTriggeredSelection.current) {
+          triggerHaptic.selection().catch(() => {});
+          hasTriggeredSelection.current = true;
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx >= maxSlideDistance * 0.8) {
+          Animated.timing(pan, {
+            toValue: maxSlideDistance,
+            duration: 150,
+            useNativeDriver: false,
+          }).start(() => {
+            handleApproveAction();
+          });
+        } else {
+          // Smooth spring reset
+          Animated.spring(pan, {
+            toValue: 0,
+            friction: 5,
+            tension: 40,
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Interpolations for beautiful slider animations
+  const fillWidth = pan.interpolate({
+    inputRange: [0, maxSlideDistance || 1],
+    outputRange: [0, containerWidth],
+    extrapolate: 'clamp'
+  });
+
+  const textOpacity = pan.interpolate({
+    inputRange: [0, maxSlideDistance * 0.4, maxSlideDistance * 0.8 || 1],
+    outputRange: [1, 0.4, 0],
+    extrapolate: 'clamp'
+  });
+
+  const textScale = pan.interpolate({
+    inputRange: [0, maxSlideDistance || 1],
+    outputRange: [1, 0.95],
+    extrapolate: 'clamp'
+  });
+
+  const thumbScale = pan.interpolate({
+    inputRange: [0, maxSlideDistance || 1],
+    outputRange: [1, 1.05],
+    extrapolate: 'clamp'
+  });
+
   if (!result || !result.action.recommended_actions || result.action.recommended_actions.length === 0) {
     return (
       <View style={styles.errorContainer}>
@@ -82,6 +223,9 @@ export default function ApprovalScreen() {
   const handleApproveAction = async () => {
     if (isLoading || executeStatus === 'RUNNING') return;
     
+    // Trigger security warning double-buzz haptic
+    triggerHaptic.warningAlert();
+    
     setIsLoading(true);
     resetExecutionState();
     setExecuteStatus('RUNNING');
@@ -96,6 +240,8 @@ export default function ApprovalScreen() {
       runSimulatedLogs();
     } catch (err: any) {
       setIsLoading(false);
+      // Trigger error haptic
+      triggerHaptic.errorAlert();
       setExecuteStatus('FAILED');
       addExecutionLog(`❌ Critical Authorization Failure: ${err.message}`);
     }
@@ -105,11 +251,13 @@ export default function ApprovalScreen() {
     let index = 0;
     
     const interval = setInterval(() => {
-      if (index < SIMULATED_RUN_LOGS.length) {
-        addExecutionLog(SIMULATED_RUN_LOGS[index]);
+      if (index < activePlaybook.length) {
+        addExecutionLog(activePlaybook[index]);
         index++;
       } else {
         clearInterval(interval);
+        // Trigger reassuring success haptic on sandbox transition
+        triggerHaptic.reassuringPulse();
         setExecuteStatus('SUCCESS');
       }
     }, 450);
@@ -127,8 +275,13 @@ export default function ApprovalScreen() {
             <ChevronLeft size={20} color="#94A3B8" />
             <Text style={styles.headerBackText}>Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Human Approval Gate</Text>
-          <View style={styles.badgePlaceholder} />
+          <Text style={styles.headerTitle}>Approval Gate</Text>
+          <View style={[styles.headerDomainBadge, { backgroundColor: `${domainInfo.color}15`, borderColor: `${domainInfo.color}40` }]}>
+            <Text style={{ fontSize: 10 }}>{domainInfo.icon}</Text>
+            <Text style={[styles.headerDomainText, { color: domainInfo.color }]}>
+              {domainInfo.label.split(' ')[0]}
+            </Text>
+          </View>
         </View>
 
         {executeStatus !== 'SUCCESS' ? (
@@ -181,18 +334,62 @@ export default function ApprovalScreen() {
               </View>
             )}
 
-            {/* Action Confirm Button */}
+            {/* Elegant Swipe to Deploy Slider */}
             {executeStatus !== 'RUNNING' && (
-              <TouchableOpacity style={styles.approveBtnWrapper} onPress={handleApproveAction}>
-                <LinearGradient
-                  colors={['#EF4444', '#DC2626']}
-                  style={styles.approveBtn}
-                >
-                  <Play size={16} color="#FFFFFF" style={{ marginRight: 8 }} fill="#FFFFFF" />
-                  <Text style={styles.approveBtnText}>Confirm and Authorize Action</Text>
-                  <ChevronRight size={18} color="#FFFFFF" style={{ marginLeft: 'auto' }} />
-                </LinearGradient>
-              </TouchableOpacity>
+              <View 
+                style={styles.swipeContainer}
+                onLayout={(event) => {
+                  const { width: measuredWidth } = event.nativeEvent.layout;
+                  if (measuredWidth > 0) {
+                    setTrackWidth(measuredWidth);
+                  }
+                }}
+              >
+                {/* Background Track with Danger/Clearance Styling */}
+                <View style={styles.swipeTrack}>
+                  {/* Dynamic Progress Fill */}
+                  <Animated.View style={[styles.progressFill, { width: fillWidth }]}>
+                    <LinearGradient
+                      colors={['#7F1D1D', '#EF4444']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+
+                  {/* Centered Instructions Text */}
+                  <Animated.View 
+                    pointerEvents="none"
+                    style={[styles.swipeTextContainer, { opacity: textOpacity, transform: [{ scale: textScale }] }]}
+                  >
+                    <Text style={styles.swipeText}>SWIPE TO CONFIRM & DEPLOY</Text>
+                  </Animated.View>
+
+                  {/* Guide Chevron Indications */}
+                  <View style={styles.guideContainer}>
+                    <ChevronRight size={16} color="#EF4444" style={styles.guideChevron1} />
+                    <ChevronRight size={16} color="#EF4444" style={styles.guideChevron2} />
+                  </View>
+
+                  {/* Sliding Handle */}
+                  <Animated.View
+                    {...panResponder.panHandlers}
+                    style={[
+                      styles.sliderHandle,
+                      {
+                        transform: [{ translateX: pan }, { scale: thumbScale }]
+                      }
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={['#FF5F5F', '#EF4444', '#991B1B']}
+                      style={styles.handleGradient}
+                    >
+                      <Play size={14} color="#FFFFFF" fill="#FFFFFF" />
+                    </LinearGradient>
+                  </Animated.View>
+                </View>
+              </View>
             )}
           </ScrollView>
         ) : (
@@ -205,13 +402,20 @@ export default function ApprovalScreen() {
               </View>
               
               <Text style={styles.successTitle}>Deployment Confirmed</Text>
+              
+              {/* Sleek Domain Badge */}
+              <View style={[styles.successDomainBadge, { backgroundColor: `${domainInfo.color}15`, borderColor: `${domainInfo.color}40` }]}>
+                <Text style={styles.successDomainEmoji}>{domainInfo.icon}</Text>
+                <Text style={[styles.successDomainText, { color: domainInfo.color }]}>{domainInfo.label}</Text>
+              </View>
+              
               <Text style={styles.successSubtitle}>Simulated steps executed successfully through the operational gateway sandbox.</Text>
 
               <View style={styles.successDivider} />
 
               <View style={styles.successConsole}>
                 <Text style={styles.successConsoleHeader}>SANDBOX LOG DISPATCH RECORD:</Text>
-                {SIMULATED_RUN_LOGS.slice(-3).map((log, idx) => (
+                {activePlaybook.slice(-3).map((log, idx) => (
                   <Text key={idx} style={styles.successConsoleLog}>✔ {log.substring(2)}</Text>
                 ))}
               </View>
@@ -289,8 +493,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
-  badgePlaceholder: {
-    width: 50,
+  headerDomainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  headerDomainText: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 4,
   },
   body: {
     flex: 1,
@@ -413,26 +627,81 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     marginBottom: 4,
   },
-  approveBtnWrapper: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
-    elevation: 8,
+  swipeContainer: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 20,
   },
-  approveBtn: {
+  swipeTrack: {
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#020617',
+    borderWidth: 1.5,
+    borderColor: '#EF444444',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    position: 'relative',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  progressFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 32,
+  },
+  swipeTextContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 2,
+  },
+  swipeText: {
+    color: '#FCA5A5',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+  },
+  guideContainer: {
+    position: 'absolute',
+    right: 22,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    zIndex: 1,
   },
-  approveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  guideChevron1: {
+    opacity: 0.25,
+  },
+  guideChevron2: {
+    opacity: 0.55,
+    marginLeft: -8,
+  },
+  sliderHandle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    position: 'absolute',
+    left: 5,
+    top: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  handleGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   successWrapper: {
     flex: 1,
@@ -472,6 +741,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  successDomainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  successDomainEmoji: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  successDomainText: {
+    fontSize: 12,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   successSubtitle: {

@@ -24,7 +24,74 @@ interface SimulationCardProps {
   simulation: SimulationObject;
 }
 
+// Custom lightweight JSON Tokenizer for beautiful syntax highlighting (keys colored blue, values green)
+const tokenizeJson = (jsonStr: string) => {
+  const regex = /("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*")|(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)|(true|false|null)|([{}[\]:,])|(\s+)/g;
+  
+  let match;
+  const tokens: Array<{ type: 'key' | 'string_val' | 'number' | 'boolean' | 'null' | 'punctuation' | 'whitespace' | 'text'; value: string }> = [];
+  
+  let lastIndex = 0;
+  while ((match = regex.exec(jsonStr)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({ type: 'text', value: jsonStr.substring(lastIndex, match.index) });
+    }
+    
+    const [
+      fullMatch,
+      strToken,
+      _,
+      numToken,
+      boolNullToken,
+      puncToken,
+      wsToken
+    ] = match;
+    
+    if (strToken !== undefined) {
+      tokens.push({ type: 'string_val', value: strToken });
+    } else if (numToken !== undefined) {
+      tokens.push({ type: 'number', value: numToken });
+    } else if (boolNullToken !== undefined) {
+      if (boolNullToken === 'null') {
+        tokens.push({ type: 'null', value: boolNullToken });
+      } else {
+        tokens.push({ type: 'boolean', value: boolNullToken });
+      }
+    } else if (puncToken !== undefined) {
+      tokens.push({ type: 'punctuation', value: puncToken });
+    } else if (wsToken !== undefined) {
+      tokens.push({ type: 'whitespace', value: wsToken });
+    }
+    
+    lastIndex = regex.lastIndex;
+  }
+  
+  if (lastIndex < jsonStr.length) {
+    tokens.push({ type: 'text', value: jsonStr.substring(lastIndex) });
+  }
+  
+  // Label keys vs string values
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].type === 'string_val') {
+      let isKey = false;
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (tokens[j].type === 'whitespace') continue;
+        if (tokens[j].type === 'punctuation' && tokens[j].value === ':') {
+          isKey = true;
+        }
+        break;
+      }
+      if (isKey) {
+        tokens[i].type = 'key';
+      }
+    }
+  }
+  
+  return tokens;
+};
+
 export default function SimulationCard({ simulation }: SimulationCardProps) {
+  const [activeTab, setActiveTab] = useState<'table' | 'json'>('table');
   const [showJson, setShowJson] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
 
@@ -35,6 +102,33 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
     } catch {
       return '{}';
     }
+  };
+
+  const renderHighlightedJson = (obj: any) => {
+    const jsonStr = prettyPrintJson(obj);
+    const tokens = tokenizeJson(jsonStr);
+
+    return (
+      <Text style={styles.consoleCode}>
+        {tokens.map((token, index) => {
+          let tokenColor = '#94A3B8'; // default punctuation/whitespace color (slate)
+          
+          if (token.type === 'key') {
+            tokenColor = '#38BDF8'; // Key colored blue (neon sky blue)
+          } else if (token.type === 'string_val' || token.type === 'number' || token.type === 'boolean' || token.type === 'null') {
+            tokenColor = '#34D399'; // Value colored green (emerald)
+          } else if (token.type === 'punctuation') {
+            tokenColor = '#64748B'; // Muted slate for punctuation
+          }
+
+          return (
+            <Text key={index} style={{ color: tokenColor }}>
+              {token.value}
+            </Text>
+          );
+        })}
+      </Text>
+    );
   };
 
   // Extract all keys from states for diff matching
@@ -62,41 +156,89 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
       <View style={styles.divider} />
 
       {/* BEFORE / AFTER STATE DIFF PANELS */}
-      <Text style={styles.sectionTitle}>
-        <TrendingUp size={12} color="#818CF8" style={{ marginRight: 6 }} />
-        State Transitions (Before vs After)
-      </Text>
-      
-      <View style={styles.diffTable}>
-        <View style={styles.diffTableHeader}>
-          <Text style={[styles.diffHeaderCell, { flex: 1.2 }]}>Variable Field</Text>
-          <Text style={styles.diffHeaderCell}>Before</Text>
-          <Text style={styles.diffHeaderCell}>After Expected</Text>
+      <View style={styles.sectionHeader}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TrendingUp size={14} color="#818CF8" style={{ marginRight: 6 }} />
+          <Text style={styles.sectionTitle}>State Transitions</Text>
         </View>
-
-        {allStateKeys.length === 0 ? (
-          <Text style={styles.emptyDiffText}>No state transitions captured.</Text>
-        ) : (
-          allStateKeys.map((key) => {
-            const beforeVal = formatStateValue(simulation.before_state?.[key]);
-            const afterVal = formatStateValue(simulation.after_state?.[key]);
-            const isChanged = beforeVal !== afterVal;
-
-            return (
-              <View key={key} style={[styles.diffRow, isChanged && styles.diffRowChanged]}>
-                <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
-                <Text style={styles.diffValBefore}>{beforeVal}</Text>
-                <View style={styles.arrowColumn}>
-                  <ArrowRight size={10} color="#475569" />
-                </View>
-                <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]}>
-                  {afterVal}
-                </Text>
-              </View>
-            );
-          })
-        )}
+        
+        {/* Sleek developer-grade segmented control tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tabButton, activeTab === 'table' && styles.tabActiveButton]}
+            onPress={() => setActiveTab('table')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'table' && styles.tabActiveText]}>Table View</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tabButton, activeTab === 'json' && styles.tabActiveButton]}
+            onPress={() => setActiveTab('json')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'json' && styles.tabActiveText]}>Raw JSON</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+      
+      {activeTab === 'table' ? (
+        <View style={styles.diffTable}>
+          <View style={styles.diffTableHeader}>
+            <Text style={[styles.diffHeaderCell, { flex: 1.2 }]}>Variable Field</Text>
+            <Text style={styles.diffHeaderCell}>Before</Text>
+            <Text style={styles.diffHeaderCell}>After Expected</Text>
+          </View>
+
+          {allStateKeys.length === 0 ? (
+            <Text style={styles.emptyDiffText}>No state transitions captured.</Text>
+          ) : (
+            allStateKeys.map((key) => {
+              const beforeVal = formatStateValue(simulation.before_state?.[key]);
+              const afterVal = formatStateValue(simulation.after_state?.[key]);
+              const isChanged = beforeVal !== afterVal;
+
+              return (
+                <View key={key} style={[styles.diffRow, isChanged && styles.diffRowChanged]}>
+                  <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
+                  <Text style={styles.diffValBefore}>{beforeVal}</Text>
+                  <View style={styles.arrowColumn}>
+                    <ArrowRight size={10} color="#475569" />
+                  </View>
+                  <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]}>
+                    {afterVal}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator style={styles.jsonSideBySideScroll}>
+          <View style={styles.jsonSideBySideContainer}>
+            {/* Before State Panel */}
+            <View style={styles.jsonPanel}>
+              <View style={styles.jsonPanelHeader}>
+                <Text style={styles.jsonPanelTitle}>BEFORE STATE</Text>
+              </View>
+              <ScrollView nestedScrollEnabled style={styles.jsonContentScroll}>
+                {renderHighlightedJson(simulation.before_state)}
+              </ScrollView>
+            </View>
+
+            <View style={styles.jsonPanelDivider} />
+
+            {/* After State Panel */}
+            <View style={styles.jsonPanel}>
+              <View style={styles.jsonPanelHeader}>
+                <Text style={[styles.jsonPanelTitle, { color: '#34D399' }]}>AFTER EXPECTED</Text>
+              </View>
+              <ScrollView nestedScrollEnabled style={styles.jsonContentScroll}>
+                {renderHighlightedJson(simulation.after_state)}
+              </ScrollView>
+            </View>
+          </View>
+        </ScrollView>
+      )}
 
       {/* NOTIFICATION DRAFT SMS/SLACK */}
       <View style={styles.notificationWrapper}>
@@ -135,9 +277,7 @@ export default function SimulationCard({ simulation }: SimulationCardProps) {
             <Text style={styles.consoleUrl}>/api/v1/dispatch</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator style={styles.consoleScroll}>
-            <Text style={styles.consoleCode}>
-              {prettyPrintJson(simulation.mock_api_call)}
-            </Text>
+            {renderHighlightedJson(simulation.mock_api_call)}
           </ScrollView>
         </View>
       )}
@@ -219,14 +359,11 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   sectionTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: '#818CF8',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
   },
   diffTable: {
     backgroundColor: '#020617',
@@ -447,5 +584,71 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#94A3B8',
     fontWeight: '500',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#020617',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 2,
+  },
+  tabButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  tabActiveButton: {
+    backgroundColor: '#1E293B',
+  },
+  tabText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tabActiveText: {
+    color: '#F8FAFC',
+  },
+  jsonSideBySideScroll: {
+    marginBottom: 16,
+  },
+  jsonSideBySideContainer: {
+    flexDirection: 'row',
+  },
+  jsonPanel: {
+    width: 275,
+    backgroundColor: '#020617',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 12,
+    height: 220,
+  },
+  jsonPanelHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    paddingBottom: 6,
+    marginBottom: 8,
+  },
+  jsonPanelTitle: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  jsonPanelDivider: {
+    width: 12,
+  },
+  jsonContentScroll: {
+    flex: 1,
   },
 });
