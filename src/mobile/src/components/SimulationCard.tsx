@@ -1,0 +1,451 @@
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { 
+  Workflow, 
+  ChevronDown, 
+  ChevronUp, 
+  Smartphone, 
+  Code2, 
+  ListTodo, 
+  ArrowRight,
+  TrendingUp
+} from 'lucide-react-native';
+
+interface SimulationObject {
+  action_taken: string;
+  mock_api_call: Record<string, any>;
+  notification_draft: string;
+  before_state: Record<string, any>;
+  after_state: Record<string, any>;
+  execution_log: string[];
+}
+
+interface SimulationCardProps {
+  simulation: SimulationObject;
+}
+
+export default function SimulationCard({ simulation }: SimulationCardProps) {
+  const [showJson, setShowJson] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+
+  // Helper to safely format JSON
+  const prettyPrintJson = (obj: any) => {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch {
+      return '{}';
+    }
+  };
+
+  // Extract all keys from states for diff matching
+  const beforeKeys = Object.keys(simulation.before_state || {});
+  const afterKeys = Object.keys(simulation.after_state || {});
+  const allStateKeys = Array.from(new Set([...beforeKeys, ...afterKeys]));
+
+  const formatStateValue = (val: any) => {
+    if (val === null || val === undefined) return 'None';
+    if (typeof val === 'object') return JSON.stringify(val);
+    if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+    return String(val);
+  };
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <Workflow size={18} color="#A78BFA" style={{ marginRight: 8 }} />
+        <Text style={styles.title}>Simulated System Sandbox</Text>
+      </View>
+
+      <Text style={styles.actionLabel}>Simulated Target Action:</Text>
+      <Text style={styles.actionValue}>{simulation.action_taken}</Text>
+
+      <View style={styles.divider} />
+
+      {/* BEFORE / AFTER STATE DIFF PANELS */}
+      <Text style={styles.sectionTitle}>
+        <TrendingUp size={12} color="#818CF8" style={{ marginRight: 6 }} />
+        State Transitions (Before vs After)
+      </Text>
+      
+      <View style={styles.diffTable}>
+        <View style={styles.diffTableHeader}>
+          <Text style={[styles.diffHeaderCell, { flex: 1.2 }]}>Variable Field</Text>
+          <Text style={styles.diffHeaderCell}>Before</Text>
+          <Text style={styles.diffHeaderCell}>After Expected</Text>
+        </View>
+
+        {allStateKeys.length === 0 ? (
+          <Text style={styles.emptyDiffText}>No state transitions captured.</Text>
+        ) : (
+          allStateKeys.map((key) => {
+            const beforeVal = formatStateValue(simulation.before_state?.[key]);
+            const afterVal = formatStateValue(simulation.after_state?.[key]);
+            const isChanged = beforeVal !== afterVal;
+
+            return (
+              <View key={key} style={[styles.diffRow, isChanged && styles.diffRowChanged]}>
+                <Text style={styles.diffKey} numberOfLines={1}>{key}</Text>
+                <Text style={styles.diffValBefore} numberOfLines={1}>{beforeVal}</Text>
+                <View style={styles.arrowColumn}>
+                  <ArrowRight size={10} color="#475569" />
+                </View>
+                <Text style={[styles.diffValAfter, isChanged && styles.diffValAfterChanged]} numberOfLines={1}>
+                  {afterVal}
+                </Text>
+              </View>
+            );
+          })
+        )}
+      </View>
+
+      {/* NOTIFICATION DRAFT SMS/SLACK */}
+      <View style={styles.notificationWrapper}>
+        <View style={styles.notificationHeader}>
+          <Smartphone size={14} color="#818CF8" style={{ marginRight: 6 }} />
+          <Text style={styles.notificationTitle}>Channel Notification Draft</Text>
+        </View>
+        <View style={styles.notificationBubble}>
+          <View style={styles.bubbleTop}>
+            <View style={styles.bubbleAppIcon} />
+            <Text style={styles.bubbleAppName}>NEXUS WORKFLOWS</Text>
+            <View style={styles.bubbleDot} />
+            <Text style={styles.bubbleTime}>now</Text>
+          </View>
+          <Text style={styles.bubbleTitle}>Automated Dispatch</Text>
+          <Text style={styles.bubbleBody}>{simulation.notification_draft || 'No notification drafted.'}</Text>
+        </View>
+      </View>
+
+      {/* EXPANDABLE RAW MOCK API CALL */}
+      <TouchableOpacity 
+        style={styles.expandableToggle} 
+        onPress={() => setShowJson(!showJson)}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Code2 size={14} color="#38BDF8" style={{ marginRight: 6 }} />
+          <Text style={styles.toggleText}>API Payload Specs</Text>
+        </View>
+        {showJson ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+      </TouchableOpacity>
+
+      {showJson && (
+        <View style={styles.jsonConsole}>
+          <View style={styles.consoleHeader}>
+            <Text style={styles.consoleMethod}>POST</Text>
+            <Text style={styles.consoleUrl}>/api/v1/dispatch</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator style={styles.consoleScroll}>
+            <Text style={styles.consoleCode}>
+              {prettyPrintJson(simulation.mock_api_call)}
+            </Text>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* EXPANDABLE EXECUTION CHECKLIST */}
+      <TouchableOpacity 
+        style={styles.expandableToggle} 
+        onPress={() => setShowLogs(!showLogs)}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <ListTodo size={14} color="#10B981" style={{ marginRight: 6 }} />
+          <Text style={styles.toggleText}>Execution Playbook Logs</Text>
+        </View>
+        {showLogs ? <ChevronUp size={16} color="#64748B" /> : <ChevronDown size={16} color="#64748B" />}
+      </TouchableOpacity>
+
+      {showLogs && (
+        <View style={styles.logList}>
+          {simulation.execution_log?.length === 0 ? (
+            <Text style={styles.emptyLogText}>No playbook steps defined.</Text>
+          ) : (
+            simulation.execution_log?.map((log, index) => (
+              <View key={index} style={styles.logItem}>
+                <View style={styles.logBullet}>
+                  <Text style={styles.logBulletText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.logItemText}>{log}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  actionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  actionValue: {
+    fontSize: 13.5,
+    color: '#E2E8F0',
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#1E293B',
+    marginVertical: 14,
+  },
+  sectionTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#818CF8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  diffTable: {
+    backgroundColor: '#020617',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  diffTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#0F172A',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  diffHeaderCell: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    flex: 1,
+  },
+  emptyDiffText: {
+    color: '#475569',
+    fontSize: 12,
+    textAlign: 'center',
+    paddingVertical: 15,
+  },
+  diffRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0F172A',
+    alignItems: 'center',
+  },
+  diffRowChanged: {
+    backgroundColor: '#1E1B4B35', // Indigo tinted shift highlight
+  },
+  diffKey: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+    flex: 1.2,
+  },
+  diffValBefore: {
+    fontSize: 11,
+    color: '#64748B',
+    flex: 1,
+  },
+  arrowColumn: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diffValAfter: {
+    fontSize: 11,
+    color: '#94A3B8',
+    flex: 1,
+  },
+  diffValAfterChanged: {
+    color: '#34D399', // Emerald green upgrade text
+    fontWeight: '700',
+  },
+  notificationWrapper: {
+    marginBottom: 14,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  notificationTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  notificationBubble: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  bubbleTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bubbleAppIcon: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: '#6366F1',
+    marginRight: 6,
+  },
+  bubbleAppName: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1,
+  },
+  bubbleDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#475569',
+    marginHorizontal: 6,
+  },
+  bubbleTime: {
+    fontSize: 8,
+    color: '#64748B',
+  },
+  bubbleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  bubbleBody: {
+    fontSize: 11.5,
+    color: '#CBD5E1',
+    lineHeight: 15,
+  },
+  expandableToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    marginTop: 6,
+  },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E2E8F0',
+  },
+  jsonConsole: {
+    backgroundColor: '#020617',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 12,
+    marginBottom: 10,
+  },
+  consoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    paddingBottom: 6,
+  },
+  consoleMethod: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#38BDF8',
+    marginRight: 6,
+    backgroundColor: '#0C4A6E',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 2,
+  },
+  consoleUrl: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  consoleScroll: {
+    maxHeight: 150,
+  },
+  consoleCode: {
+    color: '#34D399',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  logList: {
+    backgroundColor: '#020617',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+    marginBottom: 10,
+  },
+  emptyLogText: {
+    color: '#475569',
+    fontSize: 11.5,
+    textAlign: 'center',
+  },
+  logItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  logBullet: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  logBulletText: {
+    color: '#10B981',
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  logItemText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+});
